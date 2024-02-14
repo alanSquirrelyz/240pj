@@ -18,6 +18,7 @@ reddit = praw.Reddit(
     user_agent=user_agent
 )
 
+# Define date range
 start_date = datetime.datetime(2022, 1, 1).timestamp()
 end_date = datetime.datetime(2023, 12, 31).timestamp()
 
@@ -38,8 +39,16 @@ def crawl_data():
 
                 post.comments.replace_more(limit=None)
                 for comment in post.comments.list():
-                    commenter = comment.author.name if comment.author else '[deleted]'
-                    writer.writerow({'Post Title': post.title, 'Post Date': datetime.datetime.fromtimestamp(post.created_utc), 'Author': author, 'Commenter': commenter, 'Comment': comment.body})
+                    crawl_comments(comment, writer)
+
+# Function to crawl comments and subcomments
+def crawl_comments(comment, writer, parent_author=None, level=0):
+    commenter = comment.author.name if comment.author else '[deleted]'
+    writer.writerow({'Post Title': parent_author if parent_author else '', 'Post Date': '', 'Author': '', 'Commenter': commenter, 'Comment': comment.body})
+    
+    # Recursively crawl subcomments
+    for subcomment in comment.replies:
+        crawl_comments(subcomment, writer, commenter, level + 1)
 
 # Main function
 def main():
