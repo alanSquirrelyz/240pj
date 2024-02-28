@@ -1,58 +1,75 @@
-import praw
-import datetime
-import json
-import csv
-# import pandas as pd
-import praw
-from praw.models import MoreComments
+import pandas as pd
+import networkx as nx
+import plotly.graph_objs as go
 
-# Reddit API credentials
-client_id = '1UR5N-Pbu94LG4uZhyVVzg'
-client_secret = '9eIspCWr5thf9unovi3S4kQkIu4IWg'
-user_agent = 'squirrelhunter'
+df = pd.read_csv('grouped_updated_combined_data.csv')
+df = df.dropna(subset=['author', 'parent_post_author'])
+df = df[df['author'].apply(lambda x: isinstance(x, str))]
+df = df[df['parent_post_author'].apply(lambda x: isinstance(x, str))]
 
-# Initialize PRAW
-reddit = praw.Reddit(
-    client_id=client_id,
-    client_secret=client_secret,
-    user_agent=user_agent
-)
+# df = df.head(1000)
 
-# Define date range
-start_date = datetime.datetime(2022, 1, 1).timestamp()
-end_date = datetime.datetime(2023, 12, 31).timestamp()
+G = nx.DiGraph()
 
-# Crawl posts, comments, and user information
-def crawl_data():
-    subreddit = reddit.subreddit('ucr')
-    posts = subreddit.new(limit=None)
+for _, row in df.iterrows():
+    G.add_edge(row['author'], row['parent_post_author'])
 
-    with open('reddit_data.csv', 'w', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['Post Title', 'Post Date', 'Author', 'Commenter', 'Comment']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
+pos = nx.spring_layout(G, seed=42)
 
-        for post in posts:
-            if post.created_utc >= start_date and post.created_utc <= end_date:
-                author = post.author.name if post.author else '[deleted]'
-                writer.writerow({'Post Title': post.title, 'Post Date': datetime.datetime.fromtimestamp(post.created_utc), 'Author': author})
+edge_trace = go.Scatter(
+    x=[],
+    y=[],
+    line=dict(width=0.5, color='#888'),
+    hoverinfo='none',
+    mode='lines')
 
-                post.comments.replace_more(limit=None)
-                for comment in post.comments.list():
-                    crawl_comments(comment, writer)
+for edge in G.edges():
+    x0, y0 = pos[edge[0]]
+    x1, y1 = pos[edge[1]]
+    edge_trace['x'] += tuple([x0, x1, None])
+    edge_trace['y'] += tuple([y0, y1, None])
 
-# Function to crawl comments and subcomments
-def crawl_comments(comment, writer, parent_author=None, level=0):
-    commenter = comment.author.name if comment.author else '[deleted]'
-    writer.writerow({'Post Title': parent_author if parent_author else '', 'Post Date': '', 'Author': '', 'Commenter': commenter, 'Comment': comment.body})
-    
-    # Recursively crawl subcomments
-    for subcomment in comment.replies:
-        crawl_comments(subcomment, writer, commenter, level + 1)
+node_trace = go.Scatter(
+    x=[],
+    y=[],
+    text=[],
+    mode='markers',
+    hoverinfo='text',
+    marker=dict(
+        showscale=True,
+        colorscale='YlGnBu',
+        reversescale=True,
+        color=[],
+        size=10,
+        colorbar=dict(
+            thickness=15,
+            title='Node Connections',
+            xanchor='left',
+            titleside='right'
+        ),
+        line=dict(width=2)))
 
-# Main function
-def main():
-    crawl_data()
 
-if __name__ == "__main__":
-    main()
+node_degrees = dict(G.degree())
+
+for node in G.nodes():
+    x, y = pos[node]
+    node_trace['x'] += tuple([x])
+    node_trace['y'] += tuple([y])
+    color = node_degrees[node]
+    node_trace['marker']['color'] += tuple([color])
+    node_info = f'User: {node}<br># of connections: {node_degrees[node]}'
+    node_trace['text'] += tuple([node_info])
+
+fig = go.Figure(data=[edge_trace, node_trace],
+                layout=go.Layout(
+                    title='User Relation Network',
+                    titlefont=dict(size=16),
+                    showlegend=False,
+                    hovermode='closest',
+                    margin=dict(b=20, l=5, r=5, t=40),
+                    xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)))
+
+# Save the graph to an HTML file
+fig.write_html('user_relation_network_beautiful.html')
