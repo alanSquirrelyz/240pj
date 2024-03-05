@@ -17,8 +17,22 @@ for _, row in df.iterrows():
     if row['author'] != '-' and row['author'] != "[deleted]" and row['parent_post_author'] != '-' and row['parent_post_author'] != "[deleted]":
         G.add_edge(row['parent_post_author'], row['author'])
 
+# Create a list to store node colors
+node_colors = {}
 
+# Iterate through nodes to assign colors
+for node in G.nodes:
+    if node in df['author'].values and node in df['parent_post_author'].values:
+        node_colors[node] = 'red'  # Color nodes that are both author and parent_post_author
+    else:
+        node_colors[node] = 'blue'  # Default color for other nodes
+
+# Create a networkx graph with node attributes
+nx.set_node_attributes(G, node_colors, 'color')
+
+# Visualization with Gravis
 fig = gv.three(G, use_node_size_normalization=True,
-      use_edge_size_normalization=False, edge_size_data_source='weight', edge_curvature=0.3, zoom_factor=0.8)
-# pio.write_html(fig, 'user_relation_network_3d.html')
-fig.export_html('user_inter.html')
+               use_edge_size_normalization=False, edge_size_data_source='weight', edge_curvature=0.0, zoom_factor=1.6)
+
+# Export the visualization to HTML
+fig.export_html('color.html')
