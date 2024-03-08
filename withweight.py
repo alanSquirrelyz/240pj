@@ -9,7 +9,7 @@ df = pd.read_csv('grouped_updated_combined_data.csv')
 df = df.dropna(subset=['author', 'parent_post_author'])
 df = df[df['author'].apply(lambda x: isinstance(x, str))]
 df = df[df['parent_post_author'].apply(lambda x: isinstance(x, str))]
-df = df.sample(n=500)
+df = df.sample(n=100)
 
 G = nx.DiGraph()
 
