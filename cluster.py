@@ -141,8 +141,6 @@ def assign_properties(g):
         edge['color'] = source_node['color'] if source_node['color'] == target_node['color'] else 'black'
 
 
-# Create a graph with a generator function
-# G = nx.powerlaw_cluster_graph(n=250, m=2, p=0.9)
 
 # Assign node and edge properties
 assign_properties(G)
